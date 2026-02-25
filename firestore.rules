@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow read for any authenticated user (for District Pulse, DM Dashboard)
+      allow read: if request.auth != null;
+      
+      // Sub-collections under user (taskCompletions, delegationEvents, stats)
+      match /{subcollection}/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Allow DMs/admin to read any user's sub-collections
+        allow read: if request.auth != null;
+      }
+    }
+    
+    // Stores — any authenticated user can read, only admin can write
+    match /stores/{storeId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == 'Cecav74Yr8MRcniXuD0ky5Xe9LE3';
+    }
+    
+    // Districts — any authenticated user can read, only admin can write
+    match /districts/{districtId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == 'Cecav74Yr8MRcniXuD0ky5Xe9LE3';
+    }
+    
+    // District collection — any authenticated user can read, users write their own summary
+    match /district/{period}/{date}/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
