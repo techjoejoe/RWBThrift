@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/favicon.ico" />
       </head>
-      <body className="antialiased">
+      <body className="antialiased" style={{ background: 'linear-gradient(135deg, #0F1B33 0%, #1B2A4A 50%, #2A3F6A 100%)' }}>
         <AuthProvider>
           {children}
         </AuthProvider>

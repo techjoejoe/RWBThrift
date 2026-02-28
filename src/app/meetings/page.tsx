@@ -67,7 +67,7 @@ export default function MeetingsPage() {
     const [notes, setNotes] = useState<Record<string, string>>({});
     const [saved, setSaved] = useState<string | null>(null);
 
-    React.useEffect(() => { if (!isAuthenticated) router.replace('/login'); }, [isAuthenticated, router]);
+    React.useEffect(() => { if (!loading && !isAuthenticated) router.replace('/login'); }, [loading, isAuthenticated, router]);
 
     const saveNotes = useCallback(async (templateId: string) => {
         if (!user) return;

@@ -31,7 +31,8 @@ export function useStreak() {
         });
 
         return unsub;
-    }, [user]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid]);
 
     const getStreak = useCallback(() => {
         return streakData.streak;
@@ -52,7 +53,8 @@ export function useStreak() {
             const streakRef = doc(db, 'users', user.uid, 'stats', 'streak');
             try { await setDoc(streakRef, newData); } catch (err) { console.warn('Firestore streak write error:', err); }
         }
-    }, [user, streakData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid, streakData]);
 
     return { getStreak, updateStreak };
 }

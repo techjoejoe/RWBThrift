@@ -39,7 +39,8 @@ export function useDelegation(
         });
 
         return unsub;
-    }, [user]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid]);
 
     const logDelegationEvent = useCallback(async (event: DelegationEvent) => {
         if (!user) return;
@@ -50,7 +51,8 @@ export function useDelegation(
         } catch (err) {
             console.warn('Delegation event log failed:', err);
         }
-    }, [user]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid]);
 
     const delegateTask = useCallback(async (taskId: string, category: 'daily' | 'weekly' | 'monthly', delegatedTo: string) => {
         if (!user) return;
@@ -75,7 +77,8 @@ export function useDelegation(
         try { await setDoc(docRef, { completions: updated }, { merge: true }); } catch (err) { console.warn('Firestore write error:', err); }
 
         logDelegationEvent({ type: 'delegated', taskId, delegatedTo, timestamp: new Date().toISOString() });
-    }, [user, periodData, logDelegationEvent, setPeriodData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid, periodData, logDelegationEvent, setPeriodData]);
 
     const verifyDelegation = useCallback(async (taskId: string, category: 'daily' | 'weekly' | 'monthly') => {
         if (!user) return;
@@ -99,7 +102,8 @@ export function useDelegation(
         try { await setDoc(docRef, { completions: updated }, { merge: true }); } catch (err) { console.warn('Firestore write error:', err); }
 
         logDelegationEvent({ type: 'verified', taskId, delegatedTo: existing.delegatedTo || '', timestamp: new Date().toISOString() });
-    }, [user, periodData, logDelegationEvent, setPeriodData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid, periodData, logDelegationEvent, setPeriodData]);
 
     const undelegateTask = useCallback(async (taskId: string, category: 'daily' | 'weekly' | 'monthly') => {
         if (!user) return;
@@ -117,7 +121,8 @@ export function useDelegation(
         if (existing?.delegatedTo) {
             logDelegationEvent({ type: 'cancelled', taskId, delegatedTo: existing.delegatedTo, timestamp: new Date().toISOString() });
         }
-    }, [user, periodData, logDelegationEvent, setPeriodData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid, periodData, logDelegationEvent, setPeriodData]);
 
     const getDelegatedCount = useCallback((taskIds: string[], category: 'daily' | 'weekly' | 'monthly') => {
         const periodKey = getPeriodKey(category);

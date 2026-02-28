@@ -22,8 +22,8 @@ type Tab = 'users' | 'stores' | 'districts' | 'analytics';
 
 export default function AdminPage() {
     const router = useRouter();
-    const { user, isAuthenticated } = useAuth();
-    const [tab, setTab] = useState<Tab>('users');
+    const { user, isAuthenticated, loading: authLoading } = useAuth();
+    const [tab, setTab] = useState<Tab>('analytics');
 
     // Data state
     const [users, setUsers] = useState<AppUser[]>([]);
@@ -43,10 +43,10 @@ export default function AdminPage() {
     const [analyticsLoading, setAnalyticsLoading] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => { if (!isAuthenticated) router.replace('/login'); }, [isAuthenticated, router]);
+    useEffect(() => { if (!authLoading && !isAuthenticated) router.replace('/login'); }, [authLoading, isAuthenticated, router]);
     const isAdmin = user?.uid === SUPER_ADMIN_UID;
 
-    // Load all data via service layer
+    // Load all data + analytics via service layer
     useEffect(() => {
         if (!isAdmin) return;
         const loadAll = async () => {
@@ -55,6 +55,42 @@ export default function AdminPage() {
                 setUsers(u);
                 setStores(s);
                 setDistricts(d);
+
+                // Auto-load analytics (timing is the default tab)
+                setAnalyticsLoading(true);
+                try {
+                    const allTaskDefs = [...dailyTasks, ...weeklyTasks, ...monthlyTasks];
+                    const timingMap: Record<string, { durations: number[]; taskTitle: string; estimated: number }> = {};
+                    allTaskDefs.forEach(t => { timingMap[t.id] = { durations: [], taskTitle: t.title, estimated: t.estimatedMinutes || 10 }; });
+
+                    const gmUsers = u.filter(usr => usr.role === 'gm' || usr.role === 'trainer');
+                    const todayStr = toLocalDateString();
+                    const now = new Date();
+                    const dayOfWeek = now.getDay();
+                    const monday = new Date(now);
+                    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+                    const weekKey = `W-${toLocalDateString(monday)}`;
+                    const monthKey = `M-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+                    for (const gm of gmUsers) {
+                        for (const period of [todayStr, weekKey, monthKey]) {
+                            try {
+                                const snap = await getDoc(doc(db, 'users', gm.uid, 'taskCompletions', period));
+                                if (snap.exists()) {
+                                    const completions = (snap.data()?.completions || {}) as Record<string, { durationSeconds?: number }>;
+                                    Object.entries(completions).forEach(([taskId, c]) => {
+                                        if (c?.durationSeconds && timingMap[taskId]) {
+                                            timingMap[taskId].durations.push(c.durationSeconds);
+                                        }
+                                    });
+                                }
+                            } catch { }
+                        }
+                    }
+                    setTaskTimings(timingMap);
+                } catch (err) { console.warn('Analytics load failed:', err); }
+                setAnalyticsLoading(false);
+
             } catch (err) { console.warn('Failed to load admin data:', err); }
             setLoading(false);
         };

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth';
@@ -68,32 +68,39 @@ export function useDistrictSync() {
 
     const dailyCompleted = getCompletionCount(dailyTasks.map(t => t.id), 'daily');
     const streak = getStreak();
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // Debounce sync to avoid writing on every single task toggle
     useEffect(() => {
         if (!user) return;
 
-        const today = toLocalDateString();
-        const summaryRef = doc(db, 'district', 'daily', today, user.uid);
+        if (timerRef.current) clearTimeout(timerRef.current);
 
-        const data: Record<string, unknown> = {
-            uid: user.uid,
-            name: user.name || 'GM',
-            store: user.store || null,
-            photoURL: user.photoURL || null,
-            dailyCompleted,
-            dailyTotal: dailyTasks.length,
-            streak,
-            updatedAt: new Date().toISOString(),
-        };
+        timerRef.current = setTimeout(() => {
+            const today = toLocalDateString();
+            const summaryRef = doc(db, 'district', 'daily', today, user.uid);
 
-        // If all tasks complete, mark when
-        if (dailyCompleted === dailyTasks.length) {
-            data.completedAllAt = data.completedAllAt || new Date().toISOString();
-        }
+            const data: Record<string, unknown> = {
+                uid: user.uid,
+                name: user.name || 'GM',
+                store: user.store || null,
+                photoURL: user.photoURL || null,
+                dailyCompleted,
+                dailyTotal: dailyTasks.length,
+                streak,
+                updatedAt: new Date().toISOString(),
+            };
 
-        setDoc(summaryRef, data, { merge: true }).catch(err =>
-            console.warn('District sync failed:', err)
-        );
+            if (dailyCompleted === dailyTasks.length) {
+                data.completedAllAt = new Date().toISOString();
+            }
+
+            setDoc(summaryRef, data, { merge: true }).catch(err =>
+                console.warn('District sync failed:', err)
+            );
+        }, 2000); // 2s debounce
+
+        return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     }, [user, dailyCompleted, streak]);
 }
 

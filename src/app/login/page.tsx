@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { getStores } from '@/lib/services/stores';
 import { Shield, ChevronRight, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
@@ -10,7 +12,7 @@ import { Shield, ChevronRight, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
     const router = useRouter();
-    const { login, signup } = useAuth();
+    const { login, signup, isAuthenticated, loading: authLoading } = useAuth();
     const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -23,6 +25,8 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [resetSent, setResetSent] = useState(false);
+    const [resetLoading, setResetLoading] = useState(false);
 
     // Fetch stores for dropdown via service layer
     useEffect(() => {
@@ -34,6 +38,11 @@ export default function LoginPage() {
         };
         loadStores();
     }, []);
+
+    // Navigate after auth state is confirmed (avoids the "blank dashboard" bug)
+    useEffect(() => {
+        if (!authLoading && isAuthenticated) router.replace('/dashboard');
+    }, [authLoading, isAuthenticated, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -54,7 +63,8 @@ export default function LoginPage() {
             } else {
                 await login(email, password);
             }
-            router.push('/dashboard');
+            // Don't navigate here — the useEffect below handles it
+            // once onAuthStateChanged confirms the user is set
         } catch (err: unknown) {
             const firebaseError = err as { code?: string; message?: string };
             switch (firebaseError.code) {
@@ -74,8 +84,30 @@ export default function LoginPage() {
                 default:
                     setError(firebaseError.message || 'Something went wrong. Please try again.');
             }
+            setLoading(false); // Only reset on ERROR — on success, stay loading until useEffect navigates
         }
-        setLoading(false);
+    };
+
+    const handleForgotPassword = async () => {
+        if (!email.trim()) {
+            setError('Enter your email address first, then click Forgot Password.');
+            return;
+        }
+        setResetLoading(true);
+        setError('');
+        setResetSent(false);
+        try {
+            await sendPasswordResetEmail(auth, email.trim());
+            setResetSent(true);
+        } catch (err: unknown) {
+            const firebaseError = err as { code?: string };
+            if (firebaseError.code === 'auth/user-not-found' || firebaseError.code === 'auth/invalid-email') {
+                setError('No account found with that email.');
+            } else {
+                setError('Failed to send reset email. Try again.');
+            }
+        }
+        setResetLoading(false);
     };
 
     return (
@@ -171,6 +203,27 @@ export default function LoginPage() {
                             </button>
                         </div>
                     </div>
+
+                    {/* Forgot Password — only on sign in */}
+                    {!isSignUp && (
+                        <div className="text-right -mt-2">
+                            <button
+                                type="button"
+                                onClick={handleForgotPassword}
+                                disabled={resetLoading}
+                                className="text-xs font-medium text-navy/60 hover:text-red-accent transition-colors disabled:opacity-50"
+                            >
+                                {resetLoading ? 'Sending...' : 'Forgot Password?'}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Reset Email Sent */}
+                    {resetSent && (
+                        <div className="px-4 py-3 rounded-xl bg-green-light/30 border border-green/20 text-green text-sm font-medium animate-fade-in">
+                            ✓ Password reset email sent! Check your inbox.
+                        </div>
+                    )}
 
                     {/* Sign Up: Role is always GM */}
                     {isSignUp && (

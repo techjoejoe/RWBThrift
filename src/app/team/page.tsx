@@ -39,7 +39,7 @@ export default function TeamPage() {
     const [expanded, setExpanded] = useState<string | null>(null);
     const [tab, setTab] = useState<'roster' | 'delegation'>('roster');
 
-    useEffect(() => { if (!isAuthenticated) router.replace('/login'); }, [isAuthenticated, router]);
+    useEffect(() => { if (!loading && !isAuthenticated) router.replace('/login'); }, [loading, isAuthenticated, router]);
 
     useEffect(() => {
         if (!user) return;
@@ -47,12 +47,12 @@ export default function TeamPage() {
             if (snap.exists()) setTeam(snap.data().members || []);
         });
         return unsub;
-    }, [user]);
+    }, [user?.uid]);
 
     const saveTeam = useCallback(async (members: TeamMember[]) => {
         if (!user) return;
         await setDoc(doc(db, 'users', user.uid, 'storeData', 'team'), { members, updatedAt: new Date().toISOString() });
-    }, [user]);
+    }, [user?.uid]);
 
     const addMember = () => {
         if (!newName.trim()) return;

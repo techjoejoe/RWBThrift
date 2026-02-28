@@ -17,7 +17,7 @@ type TabType = 'daily' | 'weekly' | 'monthly';
 
 export default function TasksPage() {
     const router = useRouter();
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, loading } = useAuth();
     const { isCompleted, toggleTask, delegateTask, undelegateTask, verifyDelegation, getCompletionCount, getDelegatedCount, getPendingFollowUpCount, getCompletion, updateNotes, getStreak, updateStreak } = useTasks();
     const [tab, setTab] = useState<TabType>('daily');
     const [showConfetti, setShowConfetti] = useState(false);
@@ -28,8 +28,8 @@ export default function TasksPage() {
     const [customTitle, setCustomTitle] = useState('');
 
     useEffect(() => {
-        if (!isAuthenticated) router.replace('/login');
-    }, [isAuthenticated, router]);
+        if (!loading && !isAuthenticated) router.replace('/login');
+    }, [loading, isAuthenticated, router]);
 
     const currentWindow = getCurrentTimeWindow();
     const windowOrder: TimeWindow[] = ['morning', 'midday', 'afternoon', 'close'];

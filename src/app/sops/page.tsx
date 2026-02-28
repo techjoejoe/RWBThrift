@@ -114,12 +114,12 @@ const categories = [...new Set(sops.map(s => s.category))];
 
 export default function SOPsPage() {
     const router = useRouter();
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, loading } = useAuth();
     const [search, setSearch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [expanded, setExpanded] = useState<string | null>(null);
 
-    React.useEffect(() => { if (!isAuthenticated) router.replace('/login'); }, [isAuthenticated, router]);
+    React.useEffect(() => { if (!loading && !isAuthenticated) router.replace('/login'); }, [loading, isAuthenticated, router]);
 
     const filtered = sops.filter(s => {
         const matchesSearch = !search || s.title.toLowerCase().includes(search.toLowerCase()) || s.content.some(c => c.toLowerCase().includes(search.toLowerCase()));

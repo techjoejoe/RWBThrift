@@ -53,7 +53,7 @@ export default function StoreVisitPage() {
     const [saved, setSaved] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    React.useEffect(() => { if (!isAuthenticated) router.replace('/login'); }, [isAuthenticated, router]);
+    React.useEffect(() => { if (!loading && !isAuthenticated) router.replace('/login'); }, [loading, isAuthenticated, router]);
 
     const setRating = (id: string, r: Rating) => {
         setRatings(prev => {

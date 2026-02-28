@@ -12,14 +12,17 @@ import { sendPasswordResetEmail, updateEmail, EmailAuthProvider, reauthenticateW
 import { auth } from '@/lib/firebase';
 import {
     LogOut, Store, Shield, Flame, BarChart3, Camera, Check,
-    Pencil, Mail, Lock, Save, X, AlertCircle,
+    Pencil, Mail, Lock, Save, X, AlertCircle, Database,
 } from 'lucide-react';
+import { seedDemoData } from '@/lib/seed';
 
 export default function ProfilePage() {
     const router = useRouter();
     const { user, firebaseUser, logout, isAuthenticated, updateProfile, loading } = useAuth();
     const { getCompletionCount, getStreak } = useTasks();
     const [photoSaved, setPhotoSaved] = useState(false);
+    const [demoLoading, setDemoLoading] = useState(false);
+    const [demoResult, setDemoResult] = useState('');
 
     // Editable fields
     const [editingName, setEditingName] = useState(false);
@@ -37,8 +40,8 @@ export default function ProfilePage() {
     const [passwordStatus, setPasswordStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
     useEffect(() => {
-        if (!isAuthenticated) router.replace('/login');
-    }, [isAuthenticated, router]);
+        if (!loading && !isAuthenticated) router.replace('/login');
+    }, [loading, isAuthenticated, router]);
 
     if (loading || !user) return null;
 
@@ -47,7 +50,7 @@ export default function ProfilePage() {
     const weeklyDone = getCompletionCount(weeklyTasks.map(t => t.id), 'weekly');
     const monthlyDone = getCompletionCount(monthlyTasks.map(t => t.id), 'monthly');
 
-    const handleLogout = () => { logout(); router.replace('/login'); };
+    const handleLogout = () => { logout(); };
 
     const handlePhotoChange = async (url: string) => {
         await updateProfile({ photoURL: url || undefined });
@@ -302,6 +305,34 @@ export default function ProfilePage() {
                             <Flame size={18} className="text-yellow" />
                             <span className="text-sm font-semibold text-navy-dark">{streak}-day completion streak!</span>
                         </div>
+                    )}
+                </div>
+
+                {/* Load Demo Data */}
+                <div className="card p-5 space-y-3">
+                    <h3 className="font-semibold text-navy-dark text-sm">Demo Data</h3>
+                    <p className="text-xs text-gray-400">Load sample task completions, streak, team, and delegation data to see the dashboard in action.</p>
+                    <button
+                        onClick={async () => {
+                            if (!user) return;
+                            setDemoLoading(true);
+                            try {
+                                const result = await seedDemoData(user.uid, user.name);
+                                setDemoResult(`Loaded: ${result.dailyDone} daily, ${result.weeklyDone} weekly, ${result.monthlyDone} monthly tasks, ${result.streak}-day streak, ${result.teamMembers} team members`);
+                            } catch (err) {
+                                setDemoResult('Failed to load demo data');
+                                console.warn('Seed failed:', err);
+                            }
+                            setDemoLoading(false);
+                        }}
+                        disabled={demoLoading}
+                        className="btn btn-outline w-full text-sm text-navy border-navy/20 hover:bg-navy/5"
+                    >
+                        <Database size={16} />
+                        {demoLoading ? 'Loading...' : 'Load Demo Data'}
+                    </button>
+                    {demoResult && (
+                        <p className="text-xs text-green font-medium animate-fade-in">✓ {demoResult}</p>
                     )}
                 </div>
 

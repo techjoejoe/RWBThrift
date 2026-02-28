@@ -59,8 +59,8 @@ export default function DashboardPage() {
     useDistrictSync();
 
     useEffect(() => {
-        if (!isAuthenticated) router.replace('/login');
-    }, [isAuthenticated, router]);
+        if (!loading && !isAuthenticated) router.replace('/login');
+    }, [loading, isAuthenticated, router]);
 
     // Check if reflection should show (after 4pm, not yet done today)
     useEffect(() => {
@@ -80,7 +80,7 @@ export default function DashboardPage() {
             } catch { /* Firestore rules may block */ }
         };
         checkReflection();
-    }, [user]);
+    }, [user?.uid]);
 
     const handleReflectionSubmit = useCallback(async (data: { rating: number; win: string; challenge: string }) => {
         if (!user) return;
@@ -92,7 +92,7 @@ export default function DashboardPage() {
         } catch (err) { console.warn('Reflection save failed:', err); }
         setShowReflection(false);
         setReflectionDone(true);
-    }, [user]);
+    }, [user?.uid]);
 
     if (loading || !user || !user.name) return null;
 
@@ -101,7 +101,10 @@ export default function DashboardPage() {
     const monthlyCompleted = getCompletionCount(monthlyTasks.map(t => t.id), 'monthly');
     const streak = getStreak();
 
-    if (dailyCompleted === dailyTasks.length) updateStreak(true);
+    // Update streak in an effect, not during render (avoids infinite loop risk)
+    useEffect(() => {
+        if (dailyCompleted === dailyTasks.length) updateStreak(true);
+    }, [dailyCompleted, updateStreak]);
 
     const today = new Date();
     const hour = today.getHours();
@@ -297,23 +300,6 @@ export default function DashboardPage() {
                     <ProgressCard title="Weekly Tasks" completed={weeklyCompleted} total={weeklyTasks.length} period="this week" color={weeklyColor} tooltip="Tasks done once per week." />
                     <ProgressCard title="Monthly Tasks" completed={monthlyCompleted} total={monthlyTasks.length} period="this month" color={monthlyColor} tooltip="Tasks done once per month." />
                 </div>
-
-                {/* Overall Grade */}
-                {(() => {
-                    const overallPct = totalTasks > 0 ? Math.round((totalDone / totalTasks) * 100) : 0;
-                    const grade = overallPct >= 90 ? 'A' : overallPct >= 80 ? 'B' : overallPct >= 70 ? 'C' : overallPct >= 60 ? 'D' : 'F';
-                    const gradeColor = overallPct >= 90 ? 'text-green' : overallPct >= 80 ? 'text-blue-info' : overallPct >= 70 ? 'text-yellow' : 'text-red-accent';
-                    const gradeMsg = overallPct >= 90 ? 'Outstanding!' : overallPct >= 80 ? 'Great work — push for that A!' : overallPct >= 70 ? 'Solid effort. Delegate more.' : 'Room to improve.';
-                    return (
-                        <div className="card px-5 py-4 flex items-center gap-4">
-                            <div className={`text-3xl font-black ${gradeColor}`}>{grade}</div>
-                            <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-navy-dark text-[15px]">Overall Grade</p>
-                                <p className="text-xs text-gray-400">{totalDone}/{totalTasks} tasks · {overallPct}% — {gradeMsg}</p>
-                            </div>
-                        </div>
-                    );
-                })()}
 
                 <PerformanceMetrics
                     timeWindowStats={timeWindowStats}

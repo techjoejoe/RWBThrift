@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
 export default function HomePage() {
   const router = useRouter();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
+  const redirected = useRef(false);
 
   useEffect(() => {
+    if (loading || redirected.current) return;
+    redirected.current = true;
     if (!isAuthenticated) {
       router.replace('/login');
     } else if (user?.role === 'dm') {
@@ -16,7 +19,7 @@ export default function HomePage() {
     } else {
       router.replace('/dashboard');
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user?.role, router, loading]);
 
   return null;
 }

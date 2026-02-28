@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TaskDefinition } from '@/data/tasks';
 import { TaskCompletion } from '@/lib/tasks';
 import { getTimeWindowLabel } from '@/lib/timeWindows';
@@ -31,6 +31,11 @@ export default function TaskItem({ task, category, isCompleted, onToggle, comple
     const [delegateName, setDelegateName] = useState('');
     const [justCompleted, setJustCompleted] = useState(false);
     const [showNudge, setShowNudge] = useState(false);
+
+    // Sync notes when completion changes from an external Firestore snapshot
+    useEffect(() => {
+        setNotes(completion?.notes || '');
+    }, [completion?.notes]);
 
     const handleNotesBlur = () => {
         if (completion) onUpdateNotes(notes);

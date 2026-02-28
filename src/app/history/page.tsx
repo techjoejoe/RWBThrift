@@ -27,7 +27,7 @@ export default function HistoryPage() {
     const [reflectionData, setReflectionData] = useState<ReflectionData | null>(null);
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => { if (!isAuthenticated) router.replace('/login'); }, [isAuthenticated, router]);
+    useEffect(() => { if (!authLoading && !isAuthenticated) router.replace('/login'); }, [authLoading, isAuthenticated, router]);
 
     useEffect(() => {
         if (!user) return;

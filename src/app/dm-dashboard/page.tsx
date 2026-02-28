@@ -23,8 +23,8 @@ export default function DMDashboardPage() {
     const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
-        if (!isAuthenticated) router.replace('/login');
-    }, [isAuthenticated, router]);
+        if (!authLoading && !isAuthenticated) router.replace('/login');
+    }, [authLoading, isAuthenticated, router]);
 
     const isDM = user?.role === 'dm' || user?.uid === SUPER_ADMIN_UID;
 

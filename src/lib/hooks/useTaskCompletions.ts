@@ -40,7 +40,8 @@ export function useTaskCompletions() {
         }
 
         return () => unsubscribers.forEach(u => u());
-    }, [user]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid]);
 
     /** A task is completed only if directly done OR delegated + verified */
     const isCompleted = useCallback((taskId: string, category: 'daily' | 'weekly' | 'monthly') => {
@@ -79,7 +80,8 @@ export function useTaskCompletions() {
 
         setPeriodData(prev => ({ ...prev, [periodKey]: { completions: updated } }));
         try { await setDoc(docRef, { completions: updated }, { merge: true }); } catch (err) { console.warn('Firestore write error:', err); }
-    }, [user, periodData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid, periodData]);
 
     const updateNotes = useCallback(async (taskId: string, category: 'daily' | 'weekly' | 'monthly', notes: string) => {
         if (!user) return;
@@ -93,7 +95,8 @@ export function useTaskCompletions() {
 
         const docRef = doc(db, 'users', user.uid, 'taskCompletions', periodKey);
         try { await setDoc(docRef, { completions: updated }, { merge: true }); } catch (err) { console.warn('Firestore write error:', err); }
-    }, [user, periodData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid, periodData]);
 
     const getCompletionCount = useCallback((taskIds: string[], category: 'daily' | 'weekly' | 'monthly') => {
         return taskIds.filter(id => isCompleted(id, category)).length;

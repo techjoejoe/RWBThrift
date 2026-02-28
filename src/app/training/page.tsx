@@ -20,7 +20,7 @@ const emptyState: TrainingState = { completed: {}, signOffs: {}, notes: {} };
 
 export default function TrainingPage() {
     const router = useRouter();
-    const { isAuthenticated, user } = useAuth();
+    const { isAuthenticated, user, loading } = useAuth();
     const [state, setState] = useState<TrainingState>(emptyState);
     const [activeWeek, setActiveWeek] = useState(0);
     const [expandedDay, setExpandedDay] = useState<number | null>(null);
@@ -28,8 +28,8 @@ export default function TrainingPage() {
     const [trainerName, setTrainerName] = useState('');
 
     useEffect(() => {
-        if (!isAuthenticated) router.replace('/login');
-    }, [isAuthenticated, router]);
+        if (!loading && !isAuthenticated) router.replace('/login');
+    }, [loading, isAuthenticated, router]);
 
     // Listen to Firestore for training progress
     useEffect(() => {
@@ -45,7 +45,7 @@ export default function TrainingPage() {
             console.warn('Firestore training listener error:', err.message);
         });
         return () => unsub();
-    }, [user]);
+    }, [user?.uid]);
 
     const saveState = async (newState: TrainingState) => {
         setState(newState);

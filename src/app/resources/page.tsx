@@ -39,14 +39,14 @@ const categoryIcons: Record<ResourceCategory, React.ReactNode> = {
 
 export default function ResourcesPage() {
     const router = useRouter();
-    const { isAuthenticated, user } = useAuth();
+    const { isAuthenticated, user, loading } = useAuth();
     const [search, setSearch] = useState('');
     const [activeCategory, setActiveCategory] = useState<ResourceCategory | 'all'>('all');
     const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        if (!isAuthenticated) router.replace('/login');
-    }, [isAuthenticated, router]);
+        if (!loading && !isAuthenticated) router.replace('/login');
+    }, [loading, isAuthenticated, router]);
 
     // Listen to Firestore for favorites
     useEffect(() => {
@@ -60,7 +60,7 @@ export default function ResourcesPage() {
             console.warn('Firestore favorites listener error:', err.message);
         });
         return () => unsub();
-    }, [user]);
+    }, [user?.uid]);
 
     const toggleFavorite = async (id: string) => {
         const next = new Set(favorites);

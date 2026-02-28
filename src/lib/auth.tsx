@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import {
     onAuthStateChanged,
     signInWithEmailAndPassword,
@@ -47,85 +47,90 @@ const AuthContext = createContext<AuthContextType>({
     isAuthenticated: false,
 });
 
+// Capitalize each word in a name: 'joe smith' → 'Joe Smith'
+function capitalizeName(name: string): string {
+    return name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
 // Cache the pending profile in memory so signup -> onAuthStateChanged can use it
 let pendingProfile: Omit<User, 'uid' | 'email'> | null = null;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
+    const userRef = useRef<User | null>(null);
     const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Safety timeout: if auth doesn't resolve in 5s, stop loading
+        const timeout = setTimeout(() => {
+            setLoading(false);
+        }, 5000);
+
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+            clearTimeout(timeout);
             if (fbUser) {
                 setFirebaseUser(fbUser);
-                let profile: User | null = null;
 
-                // Try to fetch user profile from Firestore
+                // Set user IMMEDIATELY with basic Firebase Auth info
+                // so isAuthenticated becomes true right away (no waiting on Firestore)
+                const basicProfile: User = {
+                    uid: fbUser.uid,
+                    email: fbUser.email || '',
+                    name: capitalizeName(pendingProfile?.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'User'),
+                    role: pendingProfile?.role || 'gm',
+                    isOnboarding: pendingProfile?.isOnboarding || false,
+                    store: pendingProfile?.store || '',
+                    storeId: pendingProfile?.storeId,
+                    onboardingDay: pendingProfile?.onboardingDay,
+                };
+                setUser(basicProfile);
+                setLoading(false);
+
+                // Then fetch full profile from Firestore and update
                 try {
                     const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
                     if (userDoc.exists()) {
                         const data = userDoc.data();
-                        profile = {
+                        setUser({
                             uid: fbUser.uid,
                             email: fbUser.email || '',
-                            name: data.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'GM',
-                            role: data.role,
+                            name: capitalizeName(data.name || basicProfile.name),
+                            role: data.role || basicProfile.role,
                             isOnboarding: data.isOnboarding || false,
                             store: data.store || '',
                             storeId: data.storeId || undefined,
                             onboardingDay: data.onboardingDay,
                             photoURL: data.photoURL || undefined,
-                        };
+                        });
+                    } else if (pendingProfile) {
+                        // New signup — write profile to Firestore
+                        try {
+                            await setDoc(doc(db, 'users', fbUser.uid), {
+                                name: pendingProfile.name,
+                                role: pendingProfile.role,
+                                isOnboarding: pendingProfile.isOnboarding,
+                                store: pendingProfile.store,
+                                storeId: pendingProfile.storeId || null,
+                                onboardingDay: pendingProfile.onboardingDay || (pendingProfile.isOnboarding ? 1 : null),
+                                createdAt: new Date().toISOString(),
+                            });
+                        } catch (writeErr) {
+                            console.warn('Firestore profile write failed:', writeErr);
+                        }
                     }
                 } catch (err) {
                     console.warn('Firestore read failed (check security rules):', err);
                 }
-
-                // If Firestore read failed or doc doesn't exist, use pending profile or fallback
-                if (!profile && pendingProfile) {
-                    profile = {
-                        uid: fbUser.uid,
-                        email: fbUser.email || '',
-                        ...pendingProfile,
-                    };
-                    // Try to write the profile to Firestore
-                    try {
-                        await setDoc(doc(db, 'users', fbUser.uid), {
-                            name: pendingProfile.name,
-                            role: pendingProfile.role,
-                            isOnboarding: pendingProfile.isOnboarding,
-                            store: pendingProfile.store,
-                            onboardingDay: pendingProfile.onboardingDay || null,
-                            createdAt: new Date().toISOString(),
-                        });
-                    } catch (writeErr) {
-                        console.warn('Firestore write failed (check security rules):', writeErr);
-                    }
-                    pendingProfile = null;
-                }
-
-                // Last resort fallback
-                if (!profile) {
-                    profile = {
-                        uid: fbUser.uid,
-                        email: fbUser.email || '',
-                        name: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
-                        role: 'gm',
-                        isOnboarding: false,
-                        store: 'Store #101 — Portland',
-                    };
-                }
-
-                setUser(profile);
+                pendingProfile = null;
             } else {
                 setFirebaseUser(null);
                 setUser(null);
+                setLoading(false);
             }
-            setLoading(false);
         });
 
-        return () => unsubscribe();
+        return () => { clearTimeout(timeout); unsubscribe(); };
     }, []);
 
     const login = async (email: string, password: string) => {
@@ -150,35 +155,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    // Keep ref in sync with latest user
+    useEffect(() => { userRef.current = user; }, [user]);
+
     const updateProfile = useCallback(async (data: Partial<Pick<User, 'name' | 'photoURL' | 'store'>>) => {
-        if (!user) return;
-        const updated = { ...user, ...data };
+        const current = userRef.current;
+        if (!current) return;
+        const updated = { ...current, ...data };
         setUser(updated);
 
         try {
-            await setDoc(doc(db, 'users', user.uid), data, { merge: true });
+            await setDoc(doc(db, 'users', current.uid), data, { merge: true });
         } catch (err) {
             console.warn('Profile update failed:', err);
         }
-    }, [user]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    const logout = async () => {
+    const logout = useCallback(async () => {
+        // Navigate away FIRST so no component renders with null user
+        window.location.href = '/login';
         await signOut(auth);
-    };
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0F1B33 0%, #1B2A4A 50%, #2A3F6A 100%)' }}>
-                <div className="text-center">
-                    <div className="w-12 h-12 border-3 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/60 text-sm">Loading...</p>
-                </div>
-            </div>
-        );
-    }
+    }, []);
 
     return (
         <AuthContext.Provider value={{ user, firebaseUser, loading, login, signup, logout, updateProfile, isAuthenticated: !!user }}>
+            {loading && (
+                <div className="fixed inset-0 z-[9999] min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0F1B33 0%, #1B2A4A 50%, #2A3F6A 100%)' }}>
+                    <div className="text-center">
+                        <div className="w-12 h-12 border-3 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+                        <p className="text-white/60 text-sm">Loading...</p>
+                    </div>
+                </div>
+            )}
             {children}
         </AuthContext.Provider>
     );
