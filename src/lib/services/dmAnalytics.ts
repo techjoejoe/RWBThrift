@@ -55,7 +55,7 @@ export async function loadGMData(userUid: string): Promise<GMData[]> {
     const gmUsers: { uid: string; name: string; store: string; isOnboarding: boolean; onboardingDay?: number }[] = [];
     usersSnap.forEach(d => {
         const data = d.data();
-        if (data.role === 'gm' || data.role === 'trainer') {
+        if (data.role === 'gm' || data.role === 'trainer' || data.role === 'admin') {
             if (allowedStoreIds !== null && !allowedStoreIds.includes(data.storeId || '')) {
                 return;
             }
